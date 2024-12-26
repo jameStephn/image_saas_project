@@ -1,59 +1,46 @@
-import { clerkClient, UserJSON, WebhookEvent } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/clerk-sdk-node";
+import { WebhookEvent } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 
 import { CreateUser, deleteUser, updateUser } from "@/lib/actions/user.actions";
 
-export async function POST(req: Request) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+export async function POST(req:Request) {
+  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
   if (!WEBHOOK_SECRET) {
-    console.error("WEBHOOK_SECRET not found.");
-    throw new Error(
-      "Please add WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local"
-    );
+    throw new Error("Please add WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local");
   }
 
-  // Get the headers
-  const headerPayload = headers();
-  const svix_id = (await headerPayload).get("svix-id");
-  const svix_timestamp = (await headerPayload).get("svix-timestamp");
-  const svix_signature =  (await headerPayload).get("svix-signature");
-
-  // Log headers for debugging
-  // Log headers for debugging
-  console.log("Headers received:", {
-    svix_id,
-    svix_timestamp,
-    svix_signature,
-  }) as unknown as WebhookEvent;
+  const headerPayload = await headers();
+  const svix_id = headerPayload.get("svix-id") ?? "";
+  const svix_timestamp = headerPayload.get("svix-timestamp") ?? "";
+  const svix_signature = headerPayload.get("svix-signature") ?? "";
 
   if (!svix_id || !svix_timestamp || !svix_signature) {
-    console.error("Missing Svix headers");
     return new Response("Error occurred -- no Svix headers", {
       status: 400,
-    }) as unknown as WebhookEvent;
-  }
-
-  // Get the body
+      });
+    } else {
+      throw new Error("Invalid user ID");
+    }
   const payload = await req.json();
-  console.log("Payload received:", payload); // Log the payload
   const body = JSON.stringify(payload);
+  
+  if (!WEBHOOK_SECRET) {
+    throw new Error("WEBHOOK_SECRET is not defined");
+  }
+  const wh = new Webhook(WEBHOOK_SECRET as string);
+  let evt;
 
-  // Create a new Svix instance with your secret.
-  const wh = new Webhook(WEBHOOK_SECRET);
-
-  let evt: WebhookEvent | undefined;
-
-  // Verify the payload with the headers
   try {
     evt = wh.verify(body, {
       "svix-id": svix_id,
       "svix-timestamp": svix_timestamp,
       "svix-signature": svix_signature,
     }) as WebhookEvent;
-    console.log("Webhook verified:", evt); // Log the verified event
+    console.log("Webhook verified:", evt);
   } catch (err) {
     console.error("Error verifying webhook:", err);
     return new Response("Error occurred", {
@@ -61,46 +48,35 @@ export async function POST(req: Request) {
     });
   }
 
-  // Get the ID and type
-  if (!evt) {
-    console.error("Event is undefined");
-    return new Response("Error occurred -- event is undefined", {
-      status: 400,
-    });
-  }
-
   const { id } = evt.data;
   const eventType = evt.type;
 
-  console.log(`Handling event ${eventType} for user ${id}`); // Log event type
+  console.log(`Handling event ${eventType} for user ${id}`);
 
-  // CREATE
-  if (eventType === "user.created") {
-    const { email_addresses, image_url, first_name, last_name, username } = evt.data as UserJSON;
+  try {
+    if (eventType === "user.created") {
+      const { email_addresses, image_url, first_name, last_name, username } = evt.data;
 
-    if (!id) {
-      console.error("User ID is undefined");
-      return new Response("Error occurred -- user ID is undefined", {
-        status: 400,
-      });
-    }
+      const user = {
+        clerkId: id,
+        email: email_addresses[0].email_address,
+        username: username,
+        firstName: first_name || '',
+        lastName: last_name || '',
+        photo: image_url,
+      };
 
-    const user = {
-      clerkId: id,
-      email: email_addresses[0].email_address,
-      username: username || '',
-      firstName: first_name || '',
-      lastName: last_name || '',
-      photo: image_url,
-    };
-
-    try {
-      const newUser = await CreateUser(user);
-      console.log("New user created:", newUser); // Log the new user
+      const newUser = await fetchWithBody('http://localhost:3000/api/user/create', 'POST', user);
 
       if (newUser) {
-        const client = await clerkClient();
-        await client.users.updateUserMetadata(id, {
+      if (newUser && newUser._id) {
+        await clerkClient.users.updateUserMetadata(id, {
+          publicMetadata: {
+            userId: newUser._id,
+          },
+        });
+      }
+        await clerkClient.users.updateUserMetadata(id, {
           publicMetadata: {
             userId: newUser._id,
           },
@@ -108,62 +84,60 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({ message: "OK", user: newUser });
-    } catch (error) {
-      console.error("Error creating user:", error);
-      return new Response("Error occurred while creating user", {
-        status: 500,
-      });
-    }
-  }
-
-  // UPDATE
-  if (eventType === "user.updated" && evt) {
-    let image_url, first_name, last_name, username;
-    if (evt.data && 'image_url' in evt.data) {
-      ({ image_url, first_name, last_name, username } = evt.data as UserJSON);
     }
 
-    const user = {
-      firstName: first_name,
-      lastName: last_name,
-      username: username,
-      photo: image_url,
-    };
+    if (eventType === "user.updated") {
+      const { image_url, first_name, last_name, username } = evt.data;
 
-    try {
-      if (!id) {
-        console.error("User ID is undefined");
-        return new Response("Error occurred -- user ID is undefined", {
-          status: 400,
-        });
+      const user = {
+        firstName: first_name,
+        lastName: last_name,
+        username: username,
+        photo: image_url,
+      };
+
+      if (typeof id === 'string') {
+        const updatedUser = await updateUser(id, user);
+        console.log("User updated:", updatedUser);
+        return NextResponse.json({ message: "OK", user: updatedUser });
+      } else {
+        throw new Error("Invalid user ID");
       }
-      const updatedUser = await updateUser(id, user);
-      console.log("User updated:", updatedUser); // Log the updated user
+      console.log("User updated:", updateUser);
 
-      return NextResponse.json({ message: "OK", user: updatedUser });
-    } catch (error) {
-      console.error("Error updating user:", error);
-      return new Response("Error occurred while updating user", {
-        status: 500,
-      });
+      return NextResponse.json({ message: "OK", user: updateUser });
     }
-  }
 
-  // DELETE
-  if (eventType === "user.deleted") {
-    try {
-      const deletedUser = await deleteUser(id);
-      console.log("User deleted:", deletedUser); // Log the deleted user
+    if (eventType === "user.deleted") {
+      if (typeof id === 'string') {
+        const deletedUser = await deleteUser(id);
+        console.log("User deleted:", deletedUser);
+        return NextResponse.json({ message: "OK", user: deletedUser });
+      } else {
+        throw new Error("Invalid user ID");
+      }
+      console.log("User deleted:", deleteUser);
 
-      return NextResponse.json({ message: "OK", user: deletedUser });
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      return new Response("Error occurred while deleting user", {
-        status: 500,
-      });
+      return NextResponse.json({ message: "OK", user: deleteUser });
     }
+  } catch (error) {
+    console.error(`Error handling event ${eventType} for user ${id}:`, error);
+    return new Response(`Error occurred while handling ${eventType}`, {
+      status: 500,
+    });
   }
 
   console.log(`Unhandled event type: ${eventType}`);
   return new Response("", { status: 200 });
+}
+
+async function fetchWithBody(url: string | URL | Request, method: string, body: { clerkId: string | undefined; email: string; username: string | null; firstName: string; lastName: string; photo: string; }) {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  return response.json();
 }
