@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use server"
 import User from "../database/models/user.model"
 import { connectDB } from "../database/mongoose"
