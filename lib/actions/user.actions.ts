@@ -27,7 +27,7 @@ export async function getUserById(userId:string) {
     }
 }
 
-export async function updateUser(clerkId: string, user: { firstName: string | null; lastName: string | null; username: string; photo: string; }) 
+export async function updateUser(clerkId: string) 
 {
     try {
         await connectDB();
