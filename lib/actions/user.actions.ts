@@ -27,20 +27,18 @@ export async function getUserById(userId:string) {
     }
 }
 
-export async function updateUser(clerkId: string) 
-{
+import { UpdateQuery } from "mongoose";
+
+export async function updateUser(id: string, user: UpdateQuery<unknown>) {
     try {
         await connectDB();
-        const updateUser= await User.findOneAndUpdate({clerkId},{$set:{isVerified:true}},{new:true});
-        if(!updateUser) throw new Error("User update failed");
+        const updateUser = await User.findOneAndUpdate({ clerkId: id }, user, { new: true });
+        if (!updateUser) throw new Error("User update failed");
         return JSON.parse(JSON.stringify(updateUser));
-
     } catch (error) {
-        handleError(error)
+        handleError(error);
     }
-    
 }
-
 export async function deleteUser(clerkId:string) {
     try {
         await connectDB();
