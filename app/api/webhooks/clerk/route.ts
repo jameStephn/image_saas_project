@@ -1,15 +1,23 @@
-
+import { deleteUser, updateUser } from "@/lib/actions/user.actions";
 import { clerkClient, WebhookEvent } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 
-import { CreateUser as CreateUser, deleteUser, updateUser } from "@/lib/actions/user.actions";
+const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+
+async function fetchWithBody(url:string, method:string, body:unknown) {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  return response.json();
+}
 
 export async function POST(req: Request) {
-  // You can find this in the Clerk Dashboard -> Webhooks -> choose the webhook
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
-
   if (!WEBHOOK_SECRET) {
     throw new Error(
       "Please add WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local"
@@ -36,7 +44,7 @@ export async function POST(req: Request) {
   // Create a new Svix instance with your secret.
   const wh = new Webhook(WEBHOOK_SECRET);
 
-  let evt: WebhookEvent;
+  let evt;
 
   // Verify the payload with the headers
   try {
@@ -58,23 +66,24 @@ export async function POST(req: Request) {
 
   // CREATE
   if (eventType === "user.created") {
-    const { id, email_addresses, image_url, first_name, last_name, username } = evt.data;
+    const { email_addresses, image_url, first_name, last_name, username } = evt.data;
 
     const user = {
       clerkId: id,
       email: email_addresses[0].email_address,
-      username: username!,
+      username: username,
       firstName: first_name || '',
       lastName: last_name || '',
       photo: image_url,
     };
 
-    const newUser = await CreateUser(user);
-
+    const newUser = await fetchWithBody('http://localhost:3000/api/user/create', 'POST', user);
+    console.log(newUser);
+    
     // Set public metadata
     if (newUser) {
       const client = await clerkClient();
-      await client.users.updateUserMetadata(id, {
+      await client.users.updateUserMetadata(id!, {
         publicMetadata: {
           userId: newUser._id,
         },
@@ -83,6 +92,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: "OK", user: newUser });
   }
+
+  // Handle other event types (user.updated, user.deleted) similarly
+
 
   // UPDATE
   if (eventType === "user.updated") {

@@ -14,12 +14,14 @@ if(!cached){
 }
 export const connectDB = async () => {
     if(cached.conn) return cached.conn;
+    console.log("Connecting to DB");
     if(!Mongoose_url) throw new Error("Mongoose url is not provided");
     if(!cached.promise) {
         cached.promise = mongoose.connect(Mongoose_url,{
             dbName: "Imaginify",
             bufferCommands: false,
         });
+        console.log("Connected to DB")
     }
 }
 

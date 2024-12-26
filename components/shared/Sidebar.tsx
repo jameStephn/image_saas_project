@@ -1,13 +1,14 @@
 "use client"
 import { navLinks } from '@/constants'
-import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { SignedIn, SignedOut, useClerk, UserButton } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
 import { Button } from '../ui/button'
-
 const Sidebar = () => {
+  const {user} = useClerk();
+console.log(user)  
   const pathname =usePathname();
   return (
     <div className='sidebar'>
