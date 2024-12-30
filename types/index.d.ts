@@ -108,6 +108,19 @@ declare type CreateUserParams = {
     key: string;
     value: string | null;
   };
+  type MediaUploaderProps = {
+
+    onValueChange: (value: any) => void;
+  
+    setImage: Dispatch<any>;
+  
+    publicId: any;
+  
+    image: any;
+  
+    type: TransformationTypeKey;
+  
+  };
   
   declare type RemoveUrlQueryParams = {
     searchParams: string;
@@ -115,8 +128,8 @@ declare type CreateUserParams = {
   };
   
   declare type SearchParamProps = {
-    params: { id: string; type: TransformationTypeKey };
-    searchParams: { [key: string]: string | string[] | undefined };
+    params: Promise<any>; // Adjusted to match the expected type
+    searchParams?: Promise<any> | undefined;
   };
   
   declare type TransformationFormProps = {
