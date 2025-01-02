@@ -4,10 +4,15 @@ import { transformationTypes } from '@/constants';
 import { getUserById } from '@/lib/actions/user.actions';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-
+interface SearchParamProps {
+    params: Promise<{
+      type: keyof typeof transformationTypes;
+    }>;
+  }
+  
 const AddtransformationsPage = async ({ params }: SearchParamProps) => {
-    const { type } = await params as { type: keyof typeof transformationTypes }; // Ensure proper destructuring
-        const transformation = transformationTypes[type];
+    const { type } =await params;        
+    const transformation = transformationTypes[type];
         const { userId } = await auth();
         if (!userId) {
             console.error("User not authenticated, redirecting to sign-in");

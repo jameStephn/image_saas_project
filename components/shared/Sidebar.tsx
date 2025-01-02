@@ -6,12 +6,21 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '../ui/button'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { Dialog, DialogTitle } from '@radix-ui/react-dialog'
 
 const Sidebar = () => {
   const pathname = usePathname();
 
   return (
+
+    
     <aside className="sidebar">
+    <VisuallyHidden>
+      <Dialog>
+        <DialogTitle>Sidebar</DialogTitle>
+      </Dialog>
+    </VisuallyHidden>
       <div className="flex size-full flex-col gap-4">
         <Link href="/" className="sidebar-logo">
           <Image src="/assets/images/logo-text.svg" alt="logo" width={180} height={28} />
@@ -22,7 +31,7 @@ const Sidebar = () => {
             <ul className="sidebar-nav_elements">
               {navLinks.slice(0, 6).map((link) => {
                 const isActive = link.route === pathname
-
+                
                 return (
                   <li key={link.route} className={`sidebar-nav_element group ${
                     isActive ? 'bg-purple-gradient text-white' : 'text-gray-700'
@@ -34,7 +43,7 @@ const Sidebar = () => {
                         width={24}
                         height={24}
                         className={`${isActive && 'brightness-200'}`}
-                      />
+                        />
                       {link.label}
                     </Link>
                   </li>
@@ -58,7 +67,7 @@ const Sidebar = () => {
                         width={24}
                         height={24}
                         className={`${isActive && 'brightness-200'}`}
-                      />
+                        />
                       {link.label}
                     </Link>
                   </li>
@@ -79,6 +88,7 @@ const Sidebar = () => {
         </nav>
       </div>
     </aside>
+           
   )
 }
 

@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useTransition, Dispatch } from 'react'
+import React, { useState, useTransition, Dispatch, useEffect } from 'react'
 import {z} from 'zod'
 import { Button } from "@/components/ui/button"
 import {
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import {  useForm } from "react-hook-form"
-import { aspectRatioOptions, defaultValues, transformationTypes } from '@/constants'
+import { aspectRatioOptions, creditFee, defaultValues, transformationTypes } from '@/constants'
 import { CustomField } from './CustomField'
 import { AspectRatioKey, debounce, deepMergeObjects } from '@/lib/utils'
 import MediaUploader from './MediaUploader'
@@ -25,6 +25,7 @@ import { updateCredits } from '@/lib/actions/user.actions'
 import { getCldImageUrl } from 'next-cloudinary'
 import { addImage, updateImage } from '@/lib/actions/image.actions'
 import { useRouter } from 'next/navigation'
+import { InsufficientCreditsModal } from './InsufficientCreditsModal'
 export const formSchema = z.object({
     title:z.string().nonempty(),
     aspectRatio: z.string().optional(),
@@ -37,7 +38,7 @@ export const formSchema = z.object({
 
 
 const TransformationForm = ({action,data=null,userId,type,creditBalance,config=null}:TransformationFormProps) => {
-  const trasnformationType = transformationTypes[type];
+  const transformationType = transformationTypes[type];
   const [image, setImage] = useState(data);
   const router = useRouter();
   const [newTransformation, setnewTransformation] = useState<Transformations | null>(null);
@@ -69,8 +70,8 @@ const onInputChangeHandler = (field:string,value:string,type:TransformationTypeK
         [field==='prompt'?'prompt': 'to']:value
       }
     }))
- return onChangeField(value)
-  },1000)
+  },1000)();
+  return onChangeField(value)
 
 }
 
@@ -147,7 +148,7 @@ setisSubmitting(false)
     height:imageSize.height
  }))
 
- setnewTransformation(trasnformationType.config)
+ setnewTransformation(transformationType.config)
   return onChangeField(value)
   }
   const onTransformHandler = () => {
@@ -155,13 +156,21 @@ setisSubmitting(false)
    settransformationConfig(deepMergeObjects(newTransformation, transformationConfig) as Transformations)
    setnewTransformation(null)
    startTransition(async()=>{
-    await updateCredits(userId,-1)
+    await updateCredits(userId,creditFee)
     
    })
   };
+useEffect(()=>{
+if(image && (type ==='restore' || type ==='removeBackground')){
+  setnewTransformation(transformationType.config);
+}
+},[image,transformationType.config,type]);
+
+
   return (
     <Form {...form}>
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      {creditBalance <Math.abs(creditFee)&& <InsufficientCreditsModal/>}
       <CustomField 
         control={form.control}
         name="title"
@@ -179,6 +188,7 @@ setisSubmitting(false)
             className='w-full'
             render={({field})=><Select
             onValueChange={(value)=>onSelectFieldHandler(value,field.onChange)}
+            value={field.value}
             >
             <SelectTrigger className="select-field">
               <SelectValue placeholder="Select Size" />
