@@ -92,7 +92,7 @@ export async function getImageById(imageId: string) {
   }
 }
 
-// GET IMAGES
+// GET All IMAGES
 export async function getAllImages({ limit = 9, page = 1, searchQuery = '' }: {
   limit?: number;
   page: number;
@@ -132,10 +132,12 @@ export async function getAllImages({ limit = 9, page = 1, searchQuery = '' }: {
 
     const skipAmount = (Number(page) -1) * limit;
 
-    const images = await populateUser(Image.find(query))
-      .sort({ updatedAt: -1 })
-      .skip(skipAmount)
-      .limit(limit);
+    const images = await Image.find(query)
+    .sort({ updatedAt: -1 })
+    .skip(skipAmount)
+    .limit(limit)
+    .populate('author', '_id firstName lastName clerkId');
+  
     
     const totalImages = await Image.find(query).countDocuments();
     const savedImages = await Image.find().countDocuments();

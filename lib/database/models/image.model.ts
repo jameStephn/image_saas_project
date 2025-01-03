@@ -14,6 +14,7 @@ export interface IImage extends Document {
   prompt?: string;
   author: {
     _id: string;
+    clerkId:string;
     firstName: string;
     lastName: string;
   }

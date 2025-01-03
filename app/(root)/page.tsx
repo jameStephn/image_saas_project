@@ -11,7 +11,7 @@ const Home = async ({ searchParams,params }: SearchParamProps) => {
 
   const page = Number(awaitedSearchParams?.page) || 1;
   const searchQuery = (awaitedSearchParams?.query as string)||'';
-  const images = await getAllImages({page,searchQuery})
+  // const images = await getAllImages({page,searchQuery})
   return (
    <>
    <VisuallyHidden>
